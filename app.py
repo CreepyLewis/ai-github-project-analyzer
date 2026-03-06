@@ -1,5 +1,5 @@
 # -----------------------------
-# AI GitHub Project Analyzer
+# AI GitHub Project Analyzer - Ultimate Version
 # -----------------------------
 
 import streamlit as st
@@ -83,7 +83,6 @@ def explain_file(file_content, file_name):
     )
     return response.choices[0].text.strip()
 
-# Function to extract social links from README
 def extract_social_links(readme_text):
     social_platforms = {
         "GitHub": r"https?://github\.com/[\w\-]+",
@@ -180,8 +179,6 @@ if analyze:
         if readme:
             # Convert Markdown to HTML
             html_readme = markdown2.markdown(readme, extras=["fenced-code-blocks", "tables", "strike", "target-blank-links"])
-
-            # Custom CSS for GitHub-style preview
             custom_css = """
             <style>
             .readme-container {
@@ -222,13 +219,25 @@ if analyze:
             st.markdown(f"[📖 View Full README on GitHub]({github_readme_url})", unsafe_allow_html=True)
 
             # -----------------------------
-            # DYNAMIC SOCIAL LINKS
+            # SOCIAL LINKS (Merged)
             # -----------------------------
-            socials = extract_social_links(readme)
-            if socials:
+            default_socials = {
+                "GitHub": "https://github.com/CreepyLewis",
+                "LinkedIn": "https://linkedin.com/in/lewis-kithome",
+                "Twitter": "https://twitter.com/your_twitter",
+                "Instagram": "https://instagram.com/lewis.karl7",
+                "TikTok": "https://tiktok.com/@lewis.karl7",
+                "YouTube": "https://youtube.com/@LEWISKITHOME-I9y",
+                "Spotify": "https://open.spotify.com/user/creepylewis"
+            }
+            socials_found = extract_social_links(readme) if readme else {}
+            socials_found = {**default_socials, **socials_found}
+
+            if socials_found:
                 st.markdown("---")
-                st.subheader("🌐 Social Links Found")
-                cols = st.columns(len(socials))
+                st.subheader("🌐 Social Links")
+                scroll_container = st.container()
+                cols = scroll_container.columns(len(socials_found))
                 icons = {
                     "GitHub":"https://cdn-icons-png.flaticon.com/512/25/25231.png",
                     "LinkedIn":"https://cdn-icons-png.flaticon.com/512/174/174857.png",
@@ -238,10 +247,8 @@ if analyze:
                     "YouTube":"https://cdn-icons-png.flaticon.com/512/1384/1384060.png",
                     "Spotify":"https://cdn-icons-png.flaticon.com/512/174/174872.png"
                 }
-                for i, (platform, link) in enumerate(socials.items()):
+                for i, (platform, link) in enumerate(socials_found.items()):
                     cols[i].image(icons.get(platform), width=24)
                     cols[i].markdown(f"[{platform}]({link})")
-            else:
-                st.info("No social links detected in this README")
         else:
             st.warning("No README found for this repository")
