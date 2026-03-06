@@ -181,51 +181,25 @@ if analyze:
             # Convert Markdown to HTML
             html_readme = markdown2.markdown(readme, extras=["fenced-code-blocks", "tables", "strike", "target-blank-links"])
 
-            # Custom CSS for GitHub-like dark matrix style
+            # Custom CSS for GitHub-style preview
             custom_css = """
             <style>
             .readme-container {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
                 background-color: #0d0d0d;
                 color: #00ff41;
                 padding: 20px;
                 border-radius: 10px;
             }
-            .readme-container table {
-                border-collapse: collapse;
-                width: 100%;
-                margin-bottom: 15px;
-            }
-            .readme-container table, .readme-container th, .readme-container td {
-                border: 1px solid #00ff41;
-            }
-            .readme-container th, .readme-container td {
-                padding: 8px;
-                text-align: left;
-            }
-            .readme-container a {
-                color: #00ff41;
-                text-decoration: underline;
-            }
-            .readme-container code {
-                background-color: #111;
-                padding: 2px 4px;
-                border-radius: 4px;
-                color: #ffdd00;
-            }
-            .readme-container pre {
-                background-color: #111;
-                padding: 10px;
-                border-radius: 6px;
-                overflow-x: auto;
-            }
-            .readme-container img {
-                max-width: 100%;
-            }
+            .readme-container table {border-collapse: collapse; width: 100%; margin-bottom: 15px;}
+            .readme-container table, .readme-container th, .readme-container td {border: 1px solid #00ff41;}
+            .readme-container th, .readme-container td {padding: 8px; text-align: left;}
+            .readme-container a {color: #00ff41; text-decoration: underline;}
+            .readme-container code {background-color: #111; padding: 2px 4px; border-radius: 4px; color: #ffdd00;}
+            .readme-container pre {background-color: #111; padding: 10px; border-radius: 6px; overflow-x: auto;}
+            .readme-container img {max-width: 100%;}
             </style>
             """
-
-            # Render README preview
             components.html(f"{custom_css}<div class='readme-container'>{html_readme}</div>", height=1000, scrolling=True)
 
             # AI Project Summary
@@ -256,13 +230,13 @@ if analyze:
                 st.subheader("🌐 Social Links Found")
                 cols = st.columns(len(socials))
                 icons = {
-                    "GitHub": "https://cdn-icons-png.flaticon.com/512/25/25231.png",
-                    "LinkedIn": "https://cdn-icons-png.flaticon.com/512/174/174857.png",
-                    "Twitter": "https://cdn-icons-png.flaticon.com/512/733/733579.png",
-                    "Instagram": "https://cdn-icons-png.flaticon.com/512/174/174855.png",
-                    "TikTok": "https://cdn-icons-png.flaticon.com/512/3046/3046121.png",
-                    "YouTube": "https://cdn-icons-png.flaticon.com/512/1384/1384060.png",
-                    "Spotify": "https://cdn-icons-png.flaticon.com/512/174/174872.png"
+                    "GitHub":"https://cdn-icons-png.flaticon.com/512/25/25231.png",
+                    "LinkedIn":"https://cdn-icons-png.flaticon.com/512/174/174857.png",
+                    "Twitter":"https://cdn-icons-png.flaticon.com/512/733/733579.png",
+                    "Instagram":"https://cdn-icons-png.flaticon.com/512/174/174855.png",
+                    "TikTok":"https://cdn-icons-png.flaticon.com/512/3046/3046121.png",
+                    "YouTube":"https://cdn-icons-png.flaticon.com/512/1384/1384060.png",
+                    "Spotify":"https://cdn-icons-png.flaticon.com/512/174/174872.png"
                 }
                 for i, (platform, link) in enumerate(socials.items()):
                     cols[i].image(icons.get(platform), width=24)
