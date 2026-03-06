@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
 import base64
 
@@ -160,13 +161,18 @@ if analyze:
             st.error("Could not fetch repository files")
 
     # -----------------------------
-    # README TAB
+    # README TAB (FULL HTML RENDERING)
     # -----------------------------
     with tab3:
 
         st.subheader("📘 README Documentation")
 
         if readme:
-            st.markdown(readme)
+            # Render full HTML for banners, SVGs, GIFs, etc.
+            # Auto-calculate height based on number of lines
+            line_count = readme.count("\n")
+            height = max(600, min(3000, line_count * 20))
+
+            components.html(readme, height=height, scrolling=True)
         else:
             st.warning("No README found for this repository")
