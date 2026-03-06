@@ -19,12 +19,10 @@ st.title("🤖 AI GitHub Project Analyzer")
 # SIDEBAR
 # -----------------------------
 st.sidebar.title("Repository Input")
-
 repo_url = st.sidebar.text_input(
     "Paste GitHub Repository URL",
     placeholder="https://github.com/user/repo"
 )
-
 analyze = st.sidebar.button("Analyze Repository")
 
 # -----------------------------
@@ -103,12 +101,7 @@ if analyze:
     # -----------------------------
     # TABS
     # -----------------------------
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Overview",
-        "📂 Files",
-        "📘 README",
-        "💻 Portfolio"
-    ])
+    tab1, tab2, tab3 = st.tabs(["📊 Overview", "📂 Files", "📘 README"])
 
     # -----------------------------
     # OVERVIEW TAB
@@ -160,9 +153,21 @@ if analyze:
     with tab3:
         st.subheader("📘 README Documentation")
         if readme:
-            line_count = readme.count("\n")
-            height = max(600, min(3000, line_count*20))
-            components.html(readme, height=height, scrolling=True)
+            # Render README as HTML + enhanced visuals
+            enhanced_html = f"""
+            <div style="font-family: monospace; background-color: #0d0d0d; color: #00ff41; padding: 15px; border-radius: 10px;">
+            <pre>{readme}</pre>
+            </div>
+            <br>
+            <!-- Contribution Snake -->
+            <img src="https://raw.githubusercontent.com/{owner}/{repo}/output/snake-dark.svg" alt="Contribution Snake" style="width:100%; max-width:800px;">
+            <br>
+            <!-- Activity Graph -->
+            <img src="https://github-readme-activity-graph.vercel.app/graph?username={owner}&theme=github-compact&area=true&hide_border=true" alt="Activity Graph" style="width:100%; max-width:800px;">
+            """
+            components.html(enhanced_html, height=800, scrolling=True)
+
+            # AI Project Summary
             if st.button("🧠 Summarize Project with AI"):
                 with st.spinner("Generating AI summary..."):
                     summary = explain_repository(readme)
@@ -170,37 +175,3 @@ if analyze:
                     st.write(summary)
         else:
             st.warning("No README found for this repository")
-
-    # -----------------------------
-    # PORTFOLIO TAB
-    # -----------------------------
-    with tab4:
-        st.subheader("💻 Lewis’ Streamlit Portfolio")
-        portfolio_md = """
-![GitHub followers](https://img.shields.io/github/followers/CreepyLewis?style=social)
-![GitHub stars](https://img.shields.io/github/stars/CreepyLewis?style=social)
-
-## 🚀 My Live Apps
-
-| 🏠 House Vacancy Finder | 🎬 Movie Recommender |
-|------------------------|--------------------|
-| [![Open App](https://img.shields.io/badge/Open-App-brightgreen)](https://house-vacancy-finder-9d5mhr8gemsts3fqvnxogw.streamlit.app/) | [![Open App](https://img.shields.io/badge/Open-App-brightgreen)](https://movie-recommender-ebfqtajlarzys4ngumfbd5.streamlit.app/) |
-| ![Private](https://img.shields.io/badge/Private-Yes-red) | ![Repo Size](https://img.shields.io/github/repo-size/CreepyLewis/movie-recommender) |
-| A platform that helps users find available rental houses quickly and easily. | A movie discovery platform that recommends films based on user preferences. |
-| ![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white) ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white) ![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat&logo=pandas&logoColor=white) | ![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white) ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white) ![TMDB](https://img.shields.io/badge/TMDB-01D277?style=flat&logo=tmdb&logoColor=white) ![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat&logo=pandas&logoColor=white) |
-
-## 🌐 Secure Channels
-
-[![GitHub](https://img.shields.io/badge/GitHub-181717?logo=github&logoColor=white)](https://github.com/CreepyLewis)
-[![Spotify](https://img.shields.io/badge/Spotify-1DB954?logo=spotify&logoColor=white)](https://open.spotify.com/user/creepylewis)
-[![Instagram](https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white)](https://instagram.com/lewis.karl7)
-[![TikTok](https://img.shields.io/badge/TikTok-000000?logo=tiktok&logoColor=white)](https://tiktok.com/@lewis.karl7)
-[![YouTube](https://img.shields.io/badge/YouTube-FF0000?logo=youtube&logoColor=white)](https://youtube.com/@LEWISKITHOME-I9y)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?logo=linkedin&logoColor=white)](https://linkedin.com/in/lewis-kithome)
-
-### ☕ Fuel The Machine
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/lewiskitho2)
-[![GitHub Sponsors](https://img.shields.io/badge/Sponsor_Me_on_GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/sponsors/CreepyLewis)
-"""
-        st.markdown(portfolio_md, unsafe_allow_html=True)
