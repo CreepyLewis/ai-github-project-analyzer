@@ -1,8 +1,13 @@
+# -----------------------------
+# AI GitHub Project Analyzer
+# -----------------------------
+
 import streamlit as st
 import streamlit.components.v1 as components
 import requests
 import base64
 import openai
+import markdown2
 
 # -----------------------------
 # PAGE CONFIG
@@ -151,21 +156,58 @@ if analyze:
     # README TAB
     # -----------------------------
     with tab3:
-        st.subheader("📘 README Documentation")
+        st.subheader("📘 README Preview (GitHub-style)")
+
         if readme:
-            # Render README as HTML + enhanced visuals
-            enhanced_html = f"""
-            <div style="font-family: monospace; background-color: #0d0d0d; color: #00ff41; padding: 15px; border-radius: 10px;">
-            <pre>{readme}</pre>
-            </div>
-            <br>
-            <!-- Contribution Snake -->
-            <img src="https://raw.githubusercontent.com/{owner}/{repo}/output/snake-dark.svg" alt="Contribution Snake" style="width:100%; max-width:800px;">
-            <br>
-            <!-- Activity Graph -->
-            <img src="https://github-readme-activity-graph.vercel.app/graph?username={owner}&theme=github-compact&area=true&hide_border=true" alt="Activity Graph" style="width:100%; max-width:800px;">
+            # Convert Markdown to HTML
+            html_readme = markdown2.markdown(readme, extras=["fenced-code-blocks", "tables", "strike", "target-blank-links"])
+
+            # Custom CSS for GitHub-like dark matrix style
+            custom_css = """
+            <style>
+            .readme-container {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+                background-color: #0d0d0d;
+                color: #00ff41;
+                padding: 20px;
+                border-radius: 10px;
+            }
+            .readme-container table {
+                border-collapse: collapse;
+                width: 100%;
+                margin-bottom: 15px;
+            }
+            .readme-container table, .readme-container th, .readme-container td {
+                border: 1px solid #00ff41;
+            }
+            .readme-container th, .readme-container td {
+                padding: 8px;
+                text-align: left;
+            }
+            .readme-container a {
+                color: #00ff41;
+                text-decoration: underline;
+            }
+            .readme-container code {
+                background-color: #111;
+                padding: 2px 4px;
+                border-radius: 4px;
+                color: #ffdd00;
+            }
+            .readme-container pre {
+                background-color: #111;
+                padding: 10px;
+                border-radius: 6px;
+                overflow-x: auto;
+            }
+            .readme-container img {
+                max-width: 100%;
+            }
+            </style>
             """
-            components.html(enhanced_html, height=800, scrolling=True)
+
+            # Render README preview
+            components.html(f"{custom_css}<div class='readme-container'>{html_readme}</div>", height=1000, scrolling=True)
 
             # AI Project Summary
             if st.button("🧠 Summarize Project with AI"):
@@ -173,5 +215,18 @@ if analyze:
                     summary = explain_repository(readme)
                     st.markdown("**AI Project Summary:**")
                     st.write(summary)
+
+            # Contribution Snake
+            snake_url = f"https://raw.githubusercontent.com/{owner}/{repo}/output/snake-dark.svg"
+            st.image(snake_url, use_column_width=True)
+
+            # Activity Graph
+            graph_url = f"https://github-readme-activity-graph.vercel.app/graph?username={owner}&theme=github-compact&area=true&hide_border=true"
+            st.image(graph_url, use_column_width=True)
+
+            # Full GitHub README link
+            github_readme_url = f"https://github.com/{owner}/{repo}#readme"
+            st.markdown(f"[📖 View Full README on GitHub]({github_readme_url})", unsafe_allow_html=True)
+
         else:
             st.warning("No README found for this repository")
