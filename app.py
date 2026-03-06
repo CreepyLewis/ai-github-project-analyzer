@@ -94,24 +94,35 @@ if analyze:
         "📘 README"
     ])
 
-    # -----------------------------
-    # OVERVIEW TAB
-    # -----------------------------
+   with tab1:
 
-    with tab1:
+    st.subheader("📊 Repository Overview")
 
-        st.subheader("Repository Overview")
+    col1, col2, col3 = st.columns(3)
 
-        col1, col2, col3 = st.columns(3)
+    col1.metric("⭐ Stars", repo_info["stargazers_count"])
+    col2.metric("🍴 Forks", repo_info["forks_count"])
+    col3.metric("🐛 Issues", repo_info["open_issues_count"])
 
-        col1.metric("⭐ Stars", repo_info["stargazers_count"])
-        col2.metric("🍴 Forks", repo_info["forks_count"])
-        col3.metric("🐛 Issues", repo_info["open_issues_count"])
+    col4, col5, col6 = st.columns(3)
 
-        st.write("**Repository Name:**", repo_info["name"])
-        st.write("**Description:**", repo_info["description"])
-        st.write("**Language:**", repo_info["language"])
+    col4.metric("👀 Watchers", repo_info["watchers_count"])
+    col5.metric("📦 Size (KB)", repo_info["size"])
+    col6.metric("🧑‍💻 Default Branch", repo_info["default_branch"])
 
+    st.markdown("---")
+
+    st.write("**Repository Name:**", repo_info["name"])
+    st.write("**Owner:**", repo_info["owner"]["login"])
+    st.write("**Description:**", repo_info["description"])
+    st.write("**Primary Language:**", repo_info["language"])
+
+    st.write("**Created:**", repo_info["created_at"])
+    st.write("**Last Updated:**", repo_info["updated_at"])
+
+    st.markdown(
+        f"[🔗 Open Repository]({repo_info['html_url']})"
+    )
     # -----------------------------
     # FILES TAB
     # -----------------------------
