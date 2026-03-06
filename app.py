@@ -8,6 +8,7 @@ import requests
 import base64
 import openai
 import markdown2
+import re
 
 # -----------------------------
 # PAGE CONFIG
@@ -81,6 +82,24 @@ def explain_file(file_content, file_name):
         temperature=0.5
     )
     return response.choices[0].text.strip()
+
+# Function to extract social links from README
+def extract_social_links(readme_text):
+    social_platforms = {
+        "GitHub": r"https?://github\.com/[\w\-]+",
+        "LinkedIn": r"https?://linkedin\.com/in/[\w\-]+",
+        "Twitter": r"https?://twitter\.com/[\w\-]+",
+        "Instagram": r"https?://instagram\.com/[\w\.\-]+",
+        "TikTok": r"https?://tiktok\.com/@[\w\.\-]+",
+        "YouTube": r"https?://(www\.)?youtube\.com/[\w\-\?=]+",
+        "Spotify": r"https?://open\.spotify\.com/user/[\w\.\-]+"
+    }
+    found = {}
+    for name, pattern in social_platforms.items():
+        match = re.search(pattern, readme_text)
+        if match:
+            found[name] = match.group(0)
+    return found
 
 # -----------------------------
 # MAIN ANALYSIS
@@ -228,5 +247,27 @@ if analyze:
             github_readme_url = f"https://github.com/{owner}/{repo}#readme"
             st.markdown(f"[📖 View Full README on GitHub]({github_readme_url})", unsafe_allow_html=True)
 
+            # -----------------------------
+            # DYNAMIC SOCIAL LINKS
+            # -----------------------------
+            socials = extract_social_links(readme)
+            if socials:
+                st.markdown("---")
+                st.subheader("🌐 Social Links Found")
+                cols = st.columns(len(socials))
+                icons = {
+                    "GitHub": "https://cdn-icons-png.flaticon.com/512/25/25231.png",
+                    "LinkedIn": "https://cdn-icons-png.flaticon.com/512/174/174857.png",
+                    "Twitter": "https://cdn-icons-png.flaticon.com/512/733/733579.png",
+                    "Instagram": "https://cdn-icons-png.flaticon.com/512/174/174855.png",
+                    "TikTok": "https://cdn-icons-png.flaticon.com/512/3046/3046121.png",
+                    "YouTube": "https://cdn-icons-png.flaticon.com/512/1384/1384060.png",
+                    "Spotify": "https://cdn-icons-png.flaticon.com/512/174/174872.png"
+                }
+                for i, (platform, link) in enumerate(socials.items()):
+                    cols[i].image(icons.get(platform), width=24)
+                    cols[i].markdown(f"[{platform}]({link})")
+            else:
+                st.info("No social links detected in this README")
         else:
             st.warning("No README found for this repository")
