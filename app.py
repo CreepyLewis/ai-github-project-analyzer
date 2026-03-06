@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import requests
 import base64
+import openai
 
 # -----------------------------
 # PAGE CONFIG
@@ -25,6 +26,12 @@ repo_url = st.sidebar.text_input(
 )
 
 analyze = st.sidebar.button("Analyze Repository")
+
+# -----------------------------
+# OPENAI API SETUP
+# -----------------------------
+# Set OPENAI_API_KEY in Streamlit Secrets
+openai.api_key = st.secrets.get("OPENAI_API_KEY")
 
 # -----------------------------
 # FUNCTIONS
@@ -63,6 +70,30 @@ def get_readme(owner, repo):
         return content
     else:
         return None
+
+
+def explain_repository(readme_text):
+    """Summarize the project using AI"""
+    prompt = f"Summarize this GitHub project in a few sentences and explain its purpose:\n\n{readme_text}"
+    response = openai.Completion.create(
+        model="text-davinci-003",
+        prompt=prompt,
+        max_tokens=200,
+        temperature=0.5
+    )
+    return response.choices[0].text.strip()
+
+
+def explain_file(file_content, file_name):
+    """Explain code file using AI"""
+    prompt = f"Explain this Python file {file_name} line by line in simple terms:\n\n{file_content}"
+    response = openai.Completion.create(
+        model="text-davinci-003",
+        prompt=prompt,
+        max_tokens=400,
+        temperature=0.5
+    )
+    return response.choices[0].text.strip()
 
 
 # -----------------------------
@@ -157,22 +188,35 @@ if analyze:
                 st.subheader("📄 File Content")
                 st.code(file_content, language="python")
 
+                # AI explanation
+                if st.button(f"🧠 Explain {selected_file}"):
+                    with st.spinner("Generating AI explanation..."):
+                        explanation = explain_file(file_content, selected_file)
+                        st.markdown("**AI Explanation:**")
+                        st.write(explanation)
+
         else:
             st.error("Could not fetch repository files")
 
     # -----------------------------
-    # README TAB (FULL HTML RENDERING)
+    # README TAB (HTML + AI Summary)
     # -----------------------------
     with tab3:
 
         st.subheader("📘 README Documentation")
 
         if readme:
-            # Render full HTML for banners, SVGs, GIFs, etc.
-            # Auto-calculate height based on number of lines
+            # Render full HTML
             line_count = readme.count("\n")
             height = max(600, min(3000, line_count * 20))
-
             components.html(readme, height=height, scrolling=True)
+
+            # AI Project Summary
+            if st.button("🧠 Summarize Project with AI"):
+                with st.spinner("Generating AI summary..."):
+                    summary = explain_repository(readme)
+                    st.markdown("**AI Project Summary:**")
+                    st.write(summary)
+
         else:
             st.warning("No README found for this repository")
