@@ -362,6 +362,20 @@ if analyze:
                 for i, (platform, link) in enumerate(socials_found.items()):
                     cols[i].image(icons.get(platform), width=24)
                     cols[i].markdown(f"[{platform}]({link})")
+
+            # -----------------------------
+            # CONTRIBUTION SNAKE & ACTIVITY GRAPH
+            # -----------------------------
+            snake_url = f"https://raw.githubusercontent.com/{owner}/{repo}/output/snake-dark.svg"
+            st.image(snake_url, use_column_width=True)
+
+            graph_url = f"https://github-readme-activity-graph.vercel.app/graph?username={owner}&theme=github-compact&area=true&hide_border=true"
+            st.image(graph_url, use_column_width=True)
+
+            # Full GitHub README link
+            github_readme_url = f"https://github.com/{owner}/{repo}#readme"
+            st.markdown(f"[📖 View Full README on GitHub]({github_readme_url})", unsafe_allow_html=True)
+
         else:
             st.warning("No README found for this repository")
 
