@@ -76,7 +76,10 @@ def explain_repository(readme_text):
         model="llama3-70b-8192",
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.choices[0].message.content.strip()
+    try:
+        return response.choices[0].message.content.strip()
+    except:
+        return "AI could not generate a response."
 
 def explain_file(file_content, file_name):
     prompt = f"Explain this Python file {file_name} line by line in simple terms:\n\n{file_content}"
@@ -84,7 +87,10 @@ def explain_file(file_content, file_name):
         model="llama3-70b-8192",
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.choices[0].message.content.strip()
+    try:
+        return response.choices[0].message.content.strip()
+    except:
+        return "AI could not generate a response."
 
 def extract_social_links(readme_text):
     social_platforms = {
@@ -126,7 +132,10 @@ def improve_readme(readme_text):
         model="llama3-70b-8192",
         messages=[{"role":"user","content":prompt}]
     )
-    return response.choices[0].message.content
+    try:
+        return response.choices[0].message.content
+    except:
+        return "AI could not generate suggestions."
 
 def collect_repo_code(files):
     repo_text = ""
@@ -134,10 +143,14 @@ def collect_repo_code(files):
         if f["type"] == "file" and f.get("download_url"):
             try:
                 content = requests.get(f["download_url"]).text
+                if len(content.strip()) == 0:
+                    continue
                 repo_text += f"\n\nFILE: {f['name']}\n"
-                repo_text += content[:4000]  # limit length
-            except:
-                pass
+                repo_text += content[:4000]
+            except Exception as e:
+                print(f"Failed to load {f['name']}: {e}")
+    if len(repo_text.strip()) == 0:
+        repo_text = "No code found in repository."
     return repo_text
 
 def chat_with_repo(question, repo_text):
@@ -155,7 +168,10 @@ QUESTION:
         model="llama3-70b-8192",
         messages=[{"role":"user","content":prompt}]
     )
-    return response.choices[0].message.content
+    try:
+        return response.choices[0].message.content.strip()
+    except:
+        return "AI could not generate a response."
 
 # -----------------------------
 # MAIN ANALYSIS
@@ -330,11 +346,19 @@ if analyze:
     # -----------------------------
     with tab4:
         st.subheader("💬 Chat With This Repository")
+
         repo_text = collect_repo_code(files)
+
+        if "ai_answer" not in st.session_state:
+            st.session_state.ai_answer = ""
+
         user_question = st.text_input("Ask anything about this repository", placeholder="How do I run this project?")
+
         if st.button("Ask AI"):
             if user_question:
                 with st.spinner("AI analyzing repository..."):
-                    answer = chat_with_repo(user_question, repo_text)
-                st.markdown("### 🤖 AI Answer")
-                st.write(answer)
+                    st.session_state.ai_answer = chat_with_repo(user_question, repo_text)
+
+        if st.session_state.ai_answer:
+            st.markdown("### 🤖 AI Answer")
+            st.write(st.session_state.ai_answer)
