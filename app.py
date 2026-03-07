@@ -1,5 +1,5 @@
 # -----------------------------
-# AI GitHub Project Analyzer - Ultimate Version with Recursive Visualization
+# AI GitHub Project Analyzer - Ultimate Version with Styled Recursive Visualization
 # -----------------------------
 
 import streamlit as st
@@ -172,16 +172,13 @@ QUESTION:
         return "AI could not generate a response."
 
 # -----------------------------
-# RECURSIVE VISUALIZATION
+# STYLED RECURSIVE VISUALIZATION
 # -----------------------------
-def build_repo_graph_recursive(owner, repo, parent="root", dot=None, path=""):
-    """
-    Recursively build a Graphviz tree of the repository.
-    """
+def build_repo_graph_recursive_styled(owner, repo, parent="root", dot=None, path="", max_files_per_folder=20):
     if dot is None:
         dot = Digraph(comment='Repository Structure', format='svg')
-        dot.attr('node', shape='folder', style='filled', color='lightblue')
-        dot.node('root', 'ROOT')
+        dot.attr('node', shape='folder', style='filled', color='#0d6efd')
+        dot.node('root', 'ROOT', shape='folder', style='filled', color='#0d6efd')
 
     url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
     try:
@@ -190,16 +187,31 @@ def build_repo_graph_recursive(owner, repo, parent="root", dot=None, path=""):
         print(f"Failed to fetch {path}: {e}")
         return dot
 
+    files_count = 0
     for item in contents:
         node_name = f"{path}/{item['name']}" if path else item['name']
         if item["type"] == "dir":
-            dot.node(node_name, item["name"], shape='folder', color='lightblue')
+            dot.node(node_name, f"📁 {item['name']}", shape='folder', style='filled', color='#0d6efd')
             dot.edge(parent, node_name)
-            # Recursively fetch subdirectory
-            build_repo_graph_recursive(owner, repo, parent=node_name, dot=dot, path=node_name)
+            build_repo_graph_recursive_styled(owner, repo, parent=node_name, dot=dot, path=node_name, max_files_per_folder=max_files_per_folder)
         elif item["type"] == "file":
-            dot.node(node_name, item["name"], shape='note', color='lightyellow')
+            ext = item["name"].split(".")[-1].lower()
+            color_map = {
+                "py": "#f0db4f",
+                "js": "#f7df1e",
+                "ts": "#007acc",
+                "md": "#00ff41",
+                "json": "#ff6f61",
+            }
+            color = color_map.get(ext, "#ffffff")
+            dot.node(node_name, f"📄 {item['name']}", shape='note', style='filled', color=color)
             dot.edge(parent, node_name)
+            files_count += 1
+
+        if files_count >= max_files_per_folder:
+            dot.node(f"{node_name}_more", f"📁 ... {len(contents) - files_count} more files", shape='folder', style='dashed', color='#6c757d')
+            dot.edge(parent, f"{node_name}_more")
+            break
 
     return dot
 
@@ -253,7 +265,6 @@ if analyze:
         st.write("**Last Updated:**", repo_info["updated_at"])
         st.markdown(f"[🔗 Open Repository]({repo_info['html_url']})")
 
-        # Repository Health Score
         st.markdown("---")
         st.subheader("💚 Repository Health")
         health = 0
@@ -265,13 +276,11 @@ if analyze:
         st.progress(health/100)
         st.write(f"Health Score: **{health}/100**")
 
-        # Languages
         st.subheader("🧠 Languages Used")
         languages = get_languages(owner, repo)
         for lang, size in languages.items():
             st.write(f"**{lang}** — {size} bytes")
 
-        # Contributors
         st.subheader("🏆 Top Contributors")
         contributors = get_contributors(owner, repo)
         for c in contributors[:5]:
@@ -296,7 +305,6 @@ if analyze:
                         explanation = explain_file(file_content, selected_file)
                         st.markdown("**AI Explanation:**")
                         st.write(explanation)
-            # Repository Structure Tree
             st.markdown("### 🏗 Repository Structure")
             tree = build_tree(files)
             st.code(tree)
@@ -397,10 +405,10 @@ if analyze:
     # REPO VISUALIZATION TAB
     # -----------------------------
     with tab5:
-        st.subheader("🖼 Repository Structure Visualization (Recursive)")
+        st.subheader("🖼 Repository Structure Visualization (Styled)")
 
         try:
-            repo_graph = build_repo_graph_recursive(owner, repo)
+            repo_graph = build_repo_graph_recursive_styled(owner, repo)
             st.graphviz_chart(repo_graph)
         except Exception as e:
             st.error(f"Failed to generate repo graph: {e}")
