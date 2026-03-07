@@ -280,11 +280,13 @@ if analyze:
         languages = get_languages(owner, repo)
         for lang, size in languages.items():
             st.write(f"**{lang}** — {size} bytes")
-
-        st.subheader("🏆 Top Contributors")
+            
         contributors = get_contributors(owner, repo)
-        for c in contributors[:5]:
-            st.write(f"{c['login']} — {c['contributions']} commits")
+        if isinstance(contributors, list) and len(contributors) > 0:
+                for c in contributors[:5]:
+                            st.write(f"{c['login']} — {c['contributions']} commits")
+        else:
+            st.write("No contributors found or API limit reached.")
 
     # -----------------------------
     # FILES TAB
