@@ -1,5 +1,5 @@
 # -----------------------------
-# AI GitHub Project Analyzer - Ultimate Version
+# AI GitHub Project Analyzer - Ultimate Version with Visualization
 # -----------------------------
 
 import streamlit as st
@@ -9,6 +9,7 @@ import base64
 import markdown2
 import re
 from groq import Groq
+from graphviz import Digraph
 
 # -----------------------------
 # PAGE CONFIG
@@ -109,9 +110,6 @@ def extract_social_links(readme_text):
             found[name] = match.group(0)
     return found
 
-# -----------------------------
-# Additional Features
-# -----------------------------
 def build_tree(files):
     tree = ""
     for f in files:
@@ -173,6 +171,19 @@ QUESTION:
     except:
         return "AI could not generate a response."
 
+def build_repo_graph(files):
+    dot = Digraph(comment='Repository Structure', format='svg')
+    dot.attr('node', shape='folder', style='filled', color='lightblue')
+    dot.node('root', 'ROOT')
+    for f in files:
+        if f['type'] == 'file':
+            dot.node(f['name'], f['name'], shape='note', color='lightyellow')
+            dot.edge('root', f['name'])
+        elif f['type'] == 'dir':
+            dot.node(f['name'], f['name'], shape='folder', color='lightblue')
+            dot.edge('root', f['name'])
+    return dot
+
 # -----------------------------
 # MAIN ANALYSIS
 # -----------------------------
@@ -197,8 +208,8 @@ if analyze:
     # -----------------------------
     # TABS
     # -----------------------------
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["📊 Overview", "📂 Files", "📘 README", "💬 AI Chat"]
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["📊 Overview", "📂 Files", "📘 README", "💬 AI Chat", "🖼 Repo Visualization"]
     )
 
     # -----------------------------
@@ -362,3 +373,14 @@ if analyze:
         if st.session_state.ai_answer:
             st.markdown("### 🤖 AI Answer")
             st.write(st.session_state.ai_answer)
+
+    # -----------------------------
+    # REPO VISUALIZATION TAB
+    # -----------------------------
+    with tab5:
+        st.subheader("🖼 Repository Structure Visualization")
+        if isinstance(files, list) and len(files) > 0:
+            repo_graph = build_repo_graph(files)
+            st.graphviz_chart(repo_graph)
+        else:
+            st.warning("No files found to visualize.")
