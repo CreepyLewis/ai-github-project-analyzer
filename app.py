@@ -1,7 +1,6 @@
 # -----------------------------
-# AI GitHub Project Analyzer - Ultimate Version with PAT Support
+# AI GitHub Project Analyzer - Ultimate Version
 # -----------------------------
-
 import streamlit as st
 import streamlit.components.v1 as components
 import requests
@@ -29,16 +28,6 @@ repo_url = st.sidebar.text_input(
     placeholder="https://github.com/user/repo"
 )
 analyze = st.sidebar.button("Analyze Repository")
-
-# -----------------------------
-# GROQ API SETUP (or OpenAI)
-# -----------------------------
-if "GROQ_API_KEY" not in st.secrets:
-    st.error("Groq API key missing. Add GROQ_API_KEY in Streamlit Secrets.")
-    st.stop()
-
-from groq import Groq
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # -----------------------------
 # GITHUB API HELPERS WITH PAT SUPPORT
@@ -87,8 +76,15 @@ def get_contributors(owner, repo):
     return response.json() if response.status_code == 200 else []
 
 # -----------------------------
-# AI / GROQ FUNCTIONS
+# GROQ API (or OpenAI) FUNCTIONS
 # -----------------------------
+if "GROQ_API_KEY" not in st.secrets:
+    st.error("Groq API key missing. Add GROQ_API_KEY in Streamlit Secrets.")
+    st.stop()
+
+from groq import Groq
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+
 def explain_repository(readme_text):
     prompt = f"Summarize this GitHub project in a few sentences and explain its purpose:\n\n{readme_text}"
     response = client.chat.completions.create(
@@ -110,34 +106,6 @@ def explain_file(file_content, file_name):
         return response.choices[0].message.content.strip()
     except:
         return "AI could not generate a response."
-
-def improve_readme(readme_text):
-    prompt = f"Analyze this GitHub README and suggest improvements:\n\n{readme_text}"
-    response = client.chat.completions.create(
-        model="llama3-70b-8192",
-        messages=[{"role":"user","content":prompt}]
-    )
-    try:
-        return response.choices[0].message.content
-    except:
-        return "AI could not generate suggestions."
-
-def extract_social_links(readme_text):
-    social_platforms = {
-        "GitHub": r"https?://github\.com/[\w\-]+",
-        "LinkedIn": r"https?://linkedin\.com/in/[\w\-]+",
-        "Twitter": r"https?://twitter\.com/[\w\-]+",
-        "Instagram": r"https?://instagram\.com/[\w\.\-]+",
-        "TikTok": r"https?://tiktok\.com/@[\w\.\-]+",
-        "YouTube": r"https?://(www\.)?youtube\.com/[\w\-\?=]+",
-        "Spotify": r"https?://open\.spotify\.com/user/[\w\.\-]+"
-    }
-    found = {}
-    for name, pattern in social_platforms.items():
-        match = re.search(pattern, readme_text)
-        if match:
-            found[name] = match.group(0)
-    return found
 
 def collect_repo_code(files):
     repo_text = ""
@@ -175,8 +143,25 @@ QUESTION:
     except:
         return "AI could not generate a response."
 
+def extract_social_links(readme_text):
+    social_platforms = {
+        "GitHub": r"https?://github\.com/[\w\-]+",
+        "LinkedIn": r"https?://linkedin\.com/in/[\w\-]+",
+        "Twitter": r"https?://twitter\.com/[\w\-]+",
+        "Instagram": r"https?://instagram\.com/[\w\.\-]+",
+        "TikTok": r"https?://tiktok\.com/@[\w\.\-]+",
+        "YouTube": r"https?://(www\.)?youtube\.com/[\w\-\?=]+",
+        "Spotify": r"https?://open\.spotify\.com/user/[\w\.\-]+"
+    }
+    found = {}
+    for name, pattern in social_platforms.items():
+        match = re.search(pattern, readme_text)
+        if match:
+            found[name] = match.group(0)
+    return found
+
 # -----------------------------
-# STYLED RECURSIVE REPO VISUALIZATION
+# REPO VISUALIZATION
 # -----------------------------
 def build_repo_graph_recursive_styled(owner, repo, parent="root", dot=None, path="", max_files_per_folder=20):
     if dot is None:
@@ -240,12 +225,13 @@ if analyze:
 
     st.success("Repository analyzed successfully!")
 
+    # Tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs(
         ["📊 Overview", "📂 Files", "📘 README", "💬 AI Chat", "🖼 Repo Visualization"]
     )
 
     # -----------------------------
-    # OVERVIEW TAB
+    # OVERVIEW
     # -----------------------------
     with tab1:
         st.subheader("📊 Repository Overview")
@@ -266,8 +252,7 @@ if analyze:
         st.write("**Last Updated:**", repo_info.get("updated_at","N/A"))
         st.markdown(f"[🔗 Open Repository]({repo_info.get('html_url','#')})")
 
-        # -----------------------------
-        # Safe contributors
+        # Contributors
         contributors = get_contributors(owner, repo)
         st.subheader("🏆 Top Contributors")
         if isinstance(contributors, list) and len(contributors)>0:
@@ -275,7 +260,6 @@ if analyze:
                 st.write(f"{c.get('login','N/A')} — {c.get('contributions',0)} commits")
         else:
             st.write("No contributors found or API limit reached.")
-
     # -----------------------------
     # FILES TAB
     # -----------------------------
