@@ -1,5 +1,5 @@
 # -----------------------------
-# AI GitHub Project Analyzer - Ultimate Version with Styled Recursive Visualization
+# AI GitHub Project Analyzer - Ultimate Version with PAT Support
 # -----------------------------
 
 import streamlit as st
@@ -8,7 +8,6 @@ import requests
 import base64
 import markdown2
 import re
-from groq import Groq
 from graphviz import Digraph
 
 # -----------------------------
@@ -19,7 +18,6 @@ st.set_page_config(
     page_icon="🤖",
     layout="wide"
 )
-
 st.title("🤖 AI GitHub Project Analyzer")
 
 # -----------------------------
@@ -33,17 +31,25 @@ repo_url = st.sidebar.text_input(
 analyze = st.sidebar.button("Analyze Repository")
 
 # -----------------------------
-# GROQ API SETUP
+# GROQ API SETUP (or OpenAI)
 # -----------------------------
 if "GROQ_API_KEY" not in st.secrets:
     st.error("Groq API key missing. Add GROQ_API_KEY in Streamlit Secrets.")
     st.stop()
 
+from groq import Groq
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # -----------------------------
-# FUNCTIONS
+# GITHUB API HELPERS WITH PAT SUPPORT
 # -----------------------------
+def get_github_headers():
+    token = st.secrets.get("GITHUB_TOKEN")
+    headers = {}
+    if token:
+        headers["Authorization"] = f"token {token}"
+    return headers
+
 def parse_repo_url(url):
     match = re.search(r"github\.com/([^/]+)/([^/]+)", url)
     if match:
@@ -54,22 +60,34 @@ def parse_repo_url(url):
 
 def get_repo_info(owner, repo):
     url = f"https://api.github.com/repos/{owner}/{repo}"
-    return requests.get(url).json()
+    response = requests.get(url, headers=get_github_headers())
+    return response.json()
 
-def get_repo_files(owner, repo):
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents?per_page=100"
-    return requests.get(url).json()
+def get_repo_files(owner, repo, path=""):
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?per_page=100"
+    response = requests.get(url, headers=get_github_headers())
+    return response.json()
 
 def get_readme(owner, repo):
     url = f"https://api.github.com/repos/{owner}/{repo}/readme"
-    response = requests.get(url)
+    response = requests.get(url, headers=get_github_headers())
     if response.status_code == 200:
         data = response.json()
         return base64.b64decode(data["content"]).decode("utf-8")
     return None
 
+def get_languages(owner, repo):
+    url = f"https://api.github.com/repos/{owner}/{repo}/languages"
+    response = requests.get(url, headers=get_github_headers())
+    return response.json() if response.status_code == 200 else {}
+
+def get_contributors(owner, repo):
+    url = f"https://api.github.com/repos/{owner}/{repo}/contributors"
+    response = requests.get(url, headers=get_github_headers())
+    return response.json() if response.status_code == 200 else []
+
 # -----------------------------
-# AI FUNCTIONS
+# AI / GROQ FUNCTIONS
 # -----------------------------
 def explain_repository(readme_text):
     prompt = f"Summarize this GitHub project in a few sentences and explain its purpose:\n\n{readme_text}"
@@ -93,6 +111,17 @@ def explain_file(file_content, file_name):
     except:
         return "AI could not generate a response."
 
+def improve_readme(readme_text):
+    prompt = f"Analyze this GitHub README and suggest improvements:\n\n{readme_text}"
+    response = client.chat.completions.create(
+        model="llama3-70b-8192",
+        messages=[{"role":"user","content":prompt}]
+    )
+    try:
+        return response.choices[0].message.content
+    except:
+        return "AI could not generate suggestions."
+
 def extract_social_links(readme_text):
     social_platforms = {
         "GitHub": r"https?://github\.com/[\w\-]+",
@@ -109,31 +138,6 @@ def extract_social_links(readme_text):
         if match:
             found[name] = match.group(0)
     return found
-
-def build_tree(files):
-    tree = ""
-    for f in files:
-        tree += f"📄 {f['name']}\n"
-    return tree
-
-def get_languages(owner, repo):
-    url = f"https://api.github.com/repos/{owner}/{repo}/languages"
-    return requests.get(url).json()
-
-def get_contributors(owner, repo):
-    url = f"https://api.github.com/repos/{owner}/{repo}/contributors"
-    return requests.get(url).json()
-
-def improve_readme(readme_text):
-    prompt = f"Analyze this GitHub README and suggest improvements:\n\n{readme_text}"
-    response = client.chat.completions.create(
-        model="llama3-70b-8192",
-        messages=[{"role":"user","content":prompt}]
-    )
-    try:
-        return response.choices[0].message.content
-    except:
-        return "AI could not generate suggestions."
 
 def collect_repo_code(files):
     repo_text = ""
@@ -172,7 +176,7 @@ QUESTION:
         return "AI could not generate a response."
 
 # -----------------------------
-# STYLED RECURSIVE VISUALIZATION
+# STYLED RECURSIVE REPO VISUALIZATION
 # -----------------------------
 def build_repo_graph_recursive_styled(owner, repo, parent="root", dot=None, path="", max_files_per_folder=20):
     if dot is None:
@@ -182,7 +186,7 @@ def build_repo_graph_recursive_styled(owner, repo, parent="root", dot=None, path
 
     url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
     try:
-        contents = requests.get(url).json()
+        contents = requests.get(url, headers=get_github_headers()).json()
     except Exception as e:
         print(f"Failed to fetch {path}: {e}")
         return dot
@@ -231,14 +235,11 @@ if analyze:
         readme = get_readme(owner, repo)
 
     if "message" in repo_info:
-        st.error("Repository not found or API limit reached")
+        st.error(f"Repository not found or API limit reached: {repo_info.get('message')}")
         st.stop()
 
     st.success("Repository analyzed successfully!")
 
-    # -----------------------------
-    # TABS
-    # -----------------------------
     tab1, tab2, tab3, tab4, tab5 = st.tabs(
         ["📊 Overview", "📂 Files", "📘 README", "💬 AI Chat", "🖼 Repo Visualization"]
     )
@@ -249,42 +250,29 @@ if analyze:
     with tab1:
         st.subheader("📊 Repository Overview")
         col1, col2, col3 = st.columns(3)
-        col1.metric("⭐ Stars", repo_info["stargazers_count"])
-        col2.metric("🍴 Forks", repo_info["forks_count"])
-        col3.metric("🐛 Issues", repo_info["open_issues_count"])
+        col1.metric("⭐ Stars", repo_info.get("stargazers_count",0))
+        col2.metric("🍴 Forks", repo_info.get("forks_count",0))
+        col3.metric("🐛 Issues", repo_info.get("open_issues_count",0))
         col4, col5, col6 = st.columns(3)
-        col4.metric("👀 Watchers", repo_info["watchers_count"])
-        col5.metric("📦 Size (KB)", repo_info["size"])
-        col6.metric("🧑‍💻 Default Branch", repo_info["default_branch"])
+        col4.metric("👀 Watchers", repo_info.get("watchers_count",0))
+        col5.metric("📦 Size (KB)", repo_info.get("size",0))
+        col6.metric("🧑‍💻 Default Branch", repo_info.get("default_branch","main"))
         st.markdown("---")
-        st.write("**Repository Name:**", repo_info["name"])
-        st.write("**Owner:**", repo_info["owner"]["login"])
-        st.write("**Description:**", repo_info["description"])
-        st.write("**Primary Language:**", repo_info["language"])
-        st.write("**Created:**", repo_info["created_at"])
-        st.write("**Last Updated:**", repo_info["updated_at"])
-        st.markdown(f"[🔗 Open Repository]({repo_info['html_url']})")
+        st.write("**Repository Name:**", repo_info.get("name","N/A"))
+        st.write("**Owner:**", repo_info.get("owner",{}).get("login","N/A"))
+        st.write("**Description:**", repo_info.get("description",""))
+        st.write("**Primary Language:**", repo_info.get("language","N/A"))
+        st.write("**Created:**", repo_info.get("created_at","N/A"))
+        st.write("**Last Updated:**", repo_info.get("updated_at","N/A"))
+        st.markdown(f"[🔗 Open Repository]({repo_info.get('html_url','#')})")
 
-        st.markdown("---")
-        st.subheader("💚 Repository Health")
-        health = 0
-        if repo_info["stargazers_count"] > 10: health += 20
-        if repo_info["forks_count"] > 5: health += 20
-        if readme: health += 30
-        if repo_info["description"]: health += 10
-        if repo_info["open_issues_count"] < 10: health += 20
-        st.progress(health/100)
-        st.write(f"Health Score: **{health}/100**")
-
-        st.subheader("🧠 Languages Used")
-        languages = get_languages(owner, repo)
-        for lang, size in languages.items():
-            st.write(f"**{lang}** — {size} bytes")
-            
+        # -----------------------------
+        # Safe contributors
         contributors = get_contributors(owner, repo)
-        if isinstance(contributors, list) and len(contributors) > 0:
-                for c in contributors[:5]:
-                            st.write(f"{c['login']} — {c['contributions']} commits")
+        st.subheader("🏆 Top Contributors")
+        if isinstance(contributors, list) and len(contributors)>0:
+            for c in contributors[:5]:
+                st.write(f"{c.get('login','N/A')} — {c.get('contributions',0)} commits")
         else:
             st.write("No contributors found or API limit reached.")
 
