@@ -8,7 +8,7 @@ import requests
 import base64
 import markdown2
 import re
-from openai import OpenAI
+from groq import Groq
 
 # -----------------------------
 # PAGE CONFIG
@@ -34,9 +34,13 @@ repo_url = st.sidebar.text_input(
 analyze = st.sidebar.button("Analyze Repository")
 
 # -----------------------------
-# OPENAI API SETUP
+# GROQ API SETUP
 # -----------------------------
-client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY"))
+if "GROQ_API_KEY" not in st.secrets:
+    st.error("Groq API key missing. Add GROQ_API_KEY in Streamlit Secrets.")
+    st.stop()
+
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # -----------------------------
 # FUNCTIONS
@@ -45,9 +49,7 @@ client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY"))
 def parse_repo_url(url):
     match = re.search(r"github\.com/([^/]+)/([^/]+)", url)
     if match:
-        owner = match.group(1)
-        repo = match.group(2)
-        return owner, repo
+        return match.group(1), match.group(2)
     else:
         st.error("Invalid GitHub repository URL")
         st.stop()
@@ -55,18 +57,17 @@ def parse_repo_url(url):
 
 def get_repo_info(owner, repo):
     url = f"https://api.github.com/repos/{owner}/{repo}"
-    response = requests.get(url)
-    return response.json()
+    return requests.get(url).json()
 
 
 def get_repo_files(owner, repo):
     url = f"https://api.github.com/repos/{owner}/{repo}/contents?per_page=100"
-    response = requests.get(url)
-    return response.json()
+    return requests.get(url).json()
 
 
 def get_readme(owner, repo):
     url = f"https://api.github.com/repos/{owner}/{repo}/readme"
+
     response = requests.get(url)
 
     if response.status_code == 200:
@@ -76,36 +77,40 @@ def get_readme(owner, repo):
     return None
 
 
+# -----------------------------
+# AI FUNCTIONS
+# -----------------------------
+
 def explain_repository(readme_text):
 
-    prompt = f"Summarize this GitHub project in a few sentences and explain its purpose:\n\n{readme_text}"
+    prompt = f"""
+Summarize this GitHub project and explain its purpose clearly:
+
+{readme_text}
+"""
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role":"system","content":"You explain GitHub projects clearly."},
-            {"role":"user","content":prompt}
-        ],
-        max_tokens=200
+        model="llama3-70b-8192",
+        messages=[{"role":"user","content":prompt}]
     )
 
-    return response.choices[0].message.content.strip()
+    return response.choices[0].message.content
 
 
 def explain_file(file_content, file_name):
 
-    prompt = f"Explain this Python file {file_name} line by line in simple terms:\n\n{file_content}"
+    prompt = f"""
+Explain this Python file {file_name} line by line in simple terms:
+
+{file_content}
+"""
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role":"system","content":"You explain code simply."},
-            {"role":"user","content":prompt}
-        ],
-        max_tokens=400
+        model="llama3-70b-8192",
+        messages=[{"role":"user","content":prompt}]
     )
 
-    return response.choices[0].message.content.strip()
+    return response.choices[0].message.content
 
 
 def extract_social_links(readme_text):
@@ -123,7 +128,9 @@ def extract_social_links(readme_text):
     found = {}
 
     for name, pattern in social_platforms.items():
+
         match = re.search(pattern, readme_text)
+
         if match:
             found[name] = match.group(0)
 
@@ -162,7 +169,6 @@ if analyze:
     # -----------------------------
     # OVERVIEW TAB
     # -----------------------------
-
     with tab1:
 
         st.subheader("📊 Repository Overview")
@@ -189,9 +195,8 @@ if analyze:
         st.markdown(f"[🔗 Open Repository]({repo_info['html_url']})")
 
         # -----------------------------
-        # AI REPOSITORY SCORE (NEW)
+        # AI REPOSITORY SCORE
         # -----------------------------
-
         st.markdown("---")
         st.subheader("🤖 AI Repository Score")
 
@@ -209,18 +214,18 @@ if analyze:
         st.progress(score / 100)
         st.write(f"Project Score: **{score}/100**")
 
+
     # -----------------------------
     # FILES TAB
     # -----------------------------
-
     with tab2:
 
         st.subheader("📂 Project Files")
 
         if isinstance(files, list):
 
-            file_names = [f["name"] for f in files if f["type"]=="file"]
-            file_map = {f["name"]:f["download_url"] for f in files if f["type"]=="file"}
+            file_names = [f["name"] for f in files if f["type"] == "file"]
+            file_map = {f["name"]: f["download_url"] for f in files if f["type"] == "file"}
 
             st.write(f"Total files found: {len(file_names)}")
 
@@ -245,10 +250,10 @@ if analyze:
         else:
             st.error("Could not fetch repository files")
 
+
     # -----------------------------
     # README TAB
     # -----------------------------
-
     with tab3:
 
         st.subheader("📘 README Preview (GitHub-style)")
@@ -274,6 +279,7 @@ if analyze:
             .readme-container th,td {padding:8px;text-align:left;}
             .readme-container code {background:#111;color:#ffdd00;padding:2px 4px;border-radius:4px;}
             .readme-container pre {background:#111;padding:10px;border-radius:6px;overflow-x:auto;}
+            .readme-container img {max-width:100%;}
             </style>
             """
 
@@ -306,7 +312,6 @@ if analyze:
             # -----------------------------
             # SOCIAL LINKS
             # -----------------------------
-
             default_socials = {
                 "GitHub": "https://github.com/CreepyLewis",
                 "LinkedIn": "https://linkedin.com/in/lewis-kithome",
