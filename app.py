@@ -1,5 +1,5 @@
 # -----------------------------
-# AI GitHub Project Analyzer - Ultimate Version with Styled Recursive Visualization
+# AI GitHub Project Analyzer - Ultimate Version
 # -----------------------------
 
 import streamlit as st
@@ -42,8 +42,15 @@ if "GROQ_API_KEY" not in st.secrets:
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # -----------------------------
-# FUNCTIONS
+# GITHUB API HELPERS WITH TOKEN SUPPORT
 # -----------------------------
+def get_github_headers():
+    token = st.secrets.get("GITHUB_TOKEN")
+    headers = {}
+    if token:
+        headers["Authorization"] = f"token {token}"
+    return headers
+
 def parse_repo_url(url):
     match = re.search(r"github\.com/([^/]+)/([^/]+)", url)
     if match:
@@ -54,19 +61,31 @@ def parse_repo_url(url):
 
 def get_repo_info(owner, repo):
     url = f"https://api.github.com/repos/{owner}/{repo}"
-    return requests.get(url).json()
+    response = requests.get(url, headers=get_github_headers())
+    return response.json()
 
-def get_repo_files(owner, repo):
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents?per_page=100"
-    return requests.get(url).json()
+def get_repo_files(owner, repo, path=""):
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?per_page=100"
+    response = requests.get(url, headers=get_github_headers())
+    return response.json()
 
 def get_readme(owner, repo):
     url = f"https://api.github.com/repos/{owner}/{repo}/readme"
-    response = requests.get(url)
+    response = requests.get(url, headers=get_github_headers())
     if response.status_code == 200:
         data = response.json()
         return base64.b64decode(data["content"]).decode("utf-8")
     return None
+
+def get_languages(owner, repo):
+    url = f"https://api.github.com/repos/{owner}/{repo}/languages"
+    response = requests.get(url, headers=get_github_headers())
+    return response.json() if response.status_code == 200 else {}
+
+def get_contributors(owner, repo):
+    url = f"https://api.github.com/repos/{owner}/{repo}/contributors"
+    response = requests.get(url, headers=get_github_headers())
+    return response.json() if response.status_code == 200 else []
 
 # -----------------------------
 # AI FUNCTIONS
@@ -92,37 +111,6 @@ def explain_file(file_content, file_name):
         return response.choices[0].message.content.strip()
     except:
         return "AI could not generate a response."
-
-def extract_social_links(readme_text):
-    social_platforms = {
-        "GitHub": r"https?://github\.com/[\w\-]+",
-        "LinkedIn": r"https?://linkedin\.com/in/[\w\-]+",
-        "Twitter": r"https?://twitter\.com/[\w\-]+",
-        "Instagram": r"https?://instagram\.com/[\w\.\-]+",
-        "TikTok": r"https?://tiktok\.com/@[\w\.\-]+",
-        "YouTube": r"https?://(www\.)?youtube\.com/[\w\-\?=]+",
-        "Spotify": r"https?://open\.spotify\.com/user/[\w\.\-]+"
-    }
-    found = {}
-    for name, pattern in social_platforms.items():
-        match = re.search(pattern, readme_text)
-        if match:
-            found[name] = match.group(0)
-    return found
-
-def build_tree(files):
-    tree = ""
-    for f in files:
-        tree += f"📄 {f['name']}\n"
-    return tree
-
-def get_languages(owner, repo):
-    url = f"https://api.github.com/repos/{owner}/{repo}/languages"
-    return requests.get(url).json()
-
-def get_contributors(owner, repo):
-    url = f"https://api.github.com/repos/{owner}/{repo}/contributors"
-    return requests.get(url).json()
 
 def improve_readme(readme_text):
     prompt = f"Analyze this GitHub README and suggest improvements:\n\n{readme_text}"
@@ -171,6 +159,29 @@ QUESTION:
     except:
         return "AI could not generate a response."
 
+def extract_social_links(readme_text):
+    social_platforms = {
+        "GitHub": r"https?://github\.com/[\w\-]+",
+        "LinkedIn": r"https?://linkedin\.com/in/[\w\-]+",
+        "Twitter": r"https?://twitter\.com/[\w\-]+",
+        "Instagram": r"https?://instagram\.com/[\w\.\-]+",
+        "TikTok": r"https?://tiktok\.com/@[\w\.\-]+",
+        "YouTube": r"https?://(www\.)?youtube\.com/[\w\-\?=]+",
+        "Spotify": r"https?://open\.spotify\.com/user/[\w\.\-]+"
+    }
+    found = {}
+    for name, pattern in social_platforms.items():
+        match = re.search(pattern, readme_text)
+        if match:
+            found[name] = match.group(0)
+    return found
+
+def build_tree(files):
+    tree = ""
+    for f in files:
+        tree += f"📄 {f['name']}\n"
+    return tree
+
 # -----------------------------
 # STYLED RECURSIVE VISUALIZATION
 # -----------------------------
@@ -182,7 +193,7 @@ def build_repo_graph_recursive_styled(owner, repo, parent="root", dot=None, path
 
     url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
     try:
-        contents = requests.get(url).json()
+        contents = requests.get(url, headers=get_github_headers()).json()
     except Exception as e:
         print(f"Failed to fetch {path}: {e}")
         return dot
@@ -207,7 +218,6 @@ def build_repo_graph_recursive_styled(owner, repo, parent="root", dot=None, path
             dot.node(node_name, f"📄 {item['name']}", shape='note', style='filled', color=color)
             dot.edge(parent, node_name)
             files_count += 1
-
         if files_count >= max_files_per_folder:
             dot.node(f"{node_name}_more", f"📁 ... {len(contents) - files_count} more files", shape='folder', style='dashed', color='#6c757d')
             dot.edge(parent, f"{node_name}_more")
@@ -278,13 +288,19 @@ if analyze:
 
         st.subheader("🧠 Languages Used")
         languages = get_languages(owner, repo)
-        for lang, size in languages.items():
-            st.write(f"**{lang}** — {size} bytes")
+        if languages:
+            for lang, size in languages.items():
+                st.write(f"**{lang}** — {size} bytes")
+        else:
+            st.write("No languages detected.")
 
         st.subheader("🏆 Top Contributors")
         contributors = get_contributors(owner, repo)
-        for c in contributors[:5]:
-            st.write(f"{c['login']} — {c['contributions']} commits")
+        if isinstance(contributors, list) and len(contributors) > 0:
+            for c in contributors[:5]:
+                st.write(f"{c['login']} — {c['contributions']} commits")
+        else:
+            st.write("No contributors found or API limit reached.")
 
     # -----------------------------
     # FILES TAB
@@ -405,10 +421,4 @@ if analyze:
     # REPO VISUALIZATION TAB
     # -----------------------------
     with tab5:
-        st.subheader("🖼 Repository Structure Visualization (Styled)")
-
-        try:
-            repo_graph = build_repo_graph_recursive_styled(owner, repo)
-            st.graphviz_chart(repo_graph)
-        except Exception as e:
-            st.error(f"Failed to generate repo graph: {e}")
+        st.subheader("🖼 Repository Structure Visualization (Styled
