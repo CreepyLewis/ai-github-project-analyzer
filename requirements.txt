@@ -3,3 +3,4 @@ requests
 pandas
 openai
 markdown2
+groq
