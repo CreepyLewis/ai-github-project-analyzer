@@ -1,5 +1,5 @@
 # -----------------------------
-# AI GitHub Project Analyzer - Ultimate Version
+# AI GitHub Project Analyzer - Ultimate Version (Optimized AI Chat)
 # -----------------------------
 
 import streamlit as st
@@ -118,20 +118,23 @@ def improve_readme(readme_text):
     )
     return response.choices[0].text.strip()
 
-def collect_repo_code(files):
+def collect_repo_code(files, max_files=20, max_chars_per_file=3000):
+    """
+    Collects repository code for AI chat with limits to avoid null or slow responses.
+    """
+    code_files = [f for f in files if f["type"] == "file" and f.get("download_url") and f["name"].split(".")[-1].lower() in ("py","js","ts")]
     repo_text = ""
-    for f in files:
-        if f["type"] == "file" and f.get("download_url"):
-            try:
-                content = requests.get(f["download_url"]).text
-                if len(content.strip()) == 0:
-                    continue
-                repo_text += f"\n\nFILE: {f['name']}\n"
-                repo_text += content[:4000]
-            except:
+    for i, f in enumerate(code_files[:max_files]):
+        try:
+            content = requests.get(f["download_url"]).text
+            if len(content.strip()) == 0:
                 continue
+            repo_text += f"\n\nFILE: {f['name']}\n"
+            repo_text += content[:max_chars_per_file]
+        except:
+            continue
     if not repo_text.strip():
-        repo_text = "No code found in repository."
+        repo_text = "No usable code found in repository."
     return repo_text
 
 def chat_with_repo(question, repo_text):
@@ -330,9 +333,7 @@ if analyze:
                     improvements = improve_readme(readme)
                     st.write(improvements)
 
-            # -----------------------------
             # SOCIAL LINKS
-            # -----------------------------
             default_socials = {
                 "GitHub": "https://github.com/CreepyLewis",
                 "LinkedIn": "https://linkedin.com/in/lewis-kithome",
@@ -362,36 +363,37 @@ if analyze:
                 for i, (platform, link) in enumerate(socials_found.items()):
                     cols[i].image(icons.get(platform), width=24)
                     cols[i].markdown(f"[{platform}]({link})")
-
-            # -----------------------------
-            # CONTRIBUTION SNAKE & ACTIVITY GRAPH
-            # -----------------------------
-            snake_url = f"https://raw.githubusercontent.com/{owner}/{repo}/output/snake-dark.svg"
-            st.image(snake_url, use_column_width=True)
-
-            graph_url = f"https://github-readme-activity-graph.vercel.app/graph?username={owner}&theme=github-compact&area=true&hide_border=true"
-            st.image(graph_url, use_column_width=True)
-
-            # Full GitHub README link
-            github_readme_url = f"https://github.com/{owner}/{repo}#readme"
-            st.markdown(f"[📖 View Full README on GitHub]({github_readme_url})", unsafe_allow_html=True)
-
         else:
             st.warning("No README found for this repository")
 
     # -----------------------------
-    # AI CHAT TAB
+    # AI CHAT TAB (Optimized)
     # -----------------------------
     with tab4:
-        st.subheader("💬 Chat With This Repository")
-        repo_text = collect_repo_code(files)
+        st.subheader("💬 Chat With This Repository (Optimized)")
         if "ai_answer" not in st.session_state:
             st.session_state.ai_answer = ""
+        
+        code_file_names = [f["name"] for f in files if f["type"]=="file" and f["name"].split(".")[-1].lower() in ("py","js","ts")]
+        selected_files_for_chat = st.multiselect("Select files for AI context (optional)", code_file_names, default=code_file_names[:5])
+        
+        # Recollect repo_text based on selected files
+        repo_text_for_chat = ""
+        for f in files:
+            if f["name"] in selected_files_for_chat:
+                try:
+                    content = requests.get(f["download_url"]).text
+                    repo_text_for_chat += f"\n\nFILE: {f['name']}\n{content[:3000]}"
+                except:
+                    continue
+        if not repo_text_for_chat.strip():
+            repo_text_for_chat = "No usable code found in selected files."
+
         user_question = st.text_input("Ask anything about this repository", placeholder="How do I run this project?")
         if st.button("Ask AI"):
             if user_question:
                 with st.spinner("AI analyzing repository..."):
-                    st.session_state.ai_answer = chat_with_repo(user_question, repo_text)
+                    st.session_state.ai_answer = chat_with_repo(user_question, repo_text_for_chat)
         if st.session_state.ai_answer:
             st.markdown("### 🤖 AI Answer")
             st.write(st.session_state.ai_answer)
