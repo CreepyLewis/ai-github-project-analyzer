@@ -1,5 +1,5 @@
 # -----------------------------
-# AI GitHub Project Analyzer - Ultimate Version with Visualization
+# AI GitHub Project Analyzer - Ultimate Version with Recursive Visualization
 # -----------------------------
 
 import streamlit as st
@@ -171,17 +171,36 @@ QUESTION:
     except:
         return "AI could not generate a response."
 
-def build_repo_graph(files):
-    dot = Digraph(comment='Repository Structure', format='svg')
-    dot.attr('node', shape='folder', style='filled', color='lightblue')
-    dot.node('root', 'ROOT')
-    for f in files:
-        if f['type'] == 'file':
-            dot.node(f['name'], f['name'], shape='note', color='lightyellow')
-            dot.edge('root', f['name'])
-        elif f['type'] == 'dir':
-            dot.node(f['name'], f['name'], shape='folder', color='lightblue')
-            dot.edge('root', f['name'])
+# -----------------------------
+# RECURSIVE VISUALIZATION
+# -----------------------------
+def build_repo_graph_recursive(owner, repo, parent="root", dot=None, path=""):
+    """
+    Recursively build a Graphviz tree of the repository.
+    """
+    if dot is None:
+        dot = Digraph(comment='Repository Structure', format='svg')
+        dot.attr('node', shape='folder', style='filled', color='lightblue')
+        dot.node('root', 'ROOT')
+
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+    try:
+        contents = requests.get(url).json()
+    except Exception as e:
+        print(f"Failed to fetch {path}: {e}")
+        return dot
+
+    for item in contents:
+        node_name = f"{path}/{item['name']}" if path else item['name']
+        if item["type"] == "dir":
+            dot.node(node_name, item["name"], shape='folder', color='lightblue')
+            dot.edge(parent, node_name)
+            # Recursively fetch subdirectory
+            build_repo_graph_recursive(owner, repo, parent=node_name, dot=dot, path=node_name)
+        elif item["type"] == "file":
+            dot.node(node_name, item["name"], shape='note', color='lightyellow')
+            dot.edge(parent, node_name)
+
     return dot
 
 # -----------------------------
@@ -378,9 +397,10 @@ if analyze:
     # REPO VISUALIZATION TAB
     # -----------------------------
     with tab5:
-        st.subheader("🖼 Repository Structure Visualization")
-        if isinstance(files, list) and len(files) > 0:
-            repo_graph = build_repo_graph(files)
+        st.subheader("🖼 Repository Structure Visualization (Recursive)")
+
+        try:
+            repo_graph = build_repo_graph_recursive(owner, repo)
             st.graphviz_chart(repo_graph)
-        else:
-            st.warning("No files found to visualize.")
+        except Exception as e:
+            st.error(f"Failed to generate repo graph: {e}")
